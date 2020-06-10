@@ -4,7 +4,9 @@ import org.libtorrent4j.*;
 import org.libtorrent4j.alerts.*;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Scanner;
 
 /**
@@ -33,6 +35,8 @@ public final class DhtShell {
 	    + GetPeers + "\n" + GenKeyPair + "\n"
             + PutMutableItem + "\n" + GutMutableItem + "\n"
 	    + Count_Nodes + "\n" + Quit + "\n";
+
+    private static final SimpleDateFormat LogTimeFormat = new SimpleDateFormat("yyyy-mm-dd HH:mm:ss");
 
     public static void main(String[] args) throws Throwable {
 
@@ -123,8 +127,9 @@ public final class DhtShell {
     }
 
     private static void print(String s, boolean dollar) {
+        Date time = new Date();
         System.out.println();
-        System.out.println(s);
+        System.out.println(LogTimeFormat.format(time) + " " + s);
         if (dollar) {
             //System.out.print("$ ");
         }
