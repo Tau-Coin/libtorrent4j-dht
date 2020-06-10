@@ -21,8 +21,8 @@ public final class DhtShell {
 
     private static final String GenKeyPair = "mkeys: generate ed25519 key pair";
 
-    private static final String PutMutableItem = "mput <pub-key> <priv-key> <string value>: put mutable item";
-    private static final String GutMutableItem = "mget <pub-key>: get mutable item";
+    private static final String PutMutableItem = "mput <pub-key> <priv-key> <string value> <salt>: put mutable item";
+    private static final String GutMutableItem = "mget <pub-key> <salt>: get mutable item";
 
     private static final String Count_Nodes = "count_nodes: count nodes of dht";
 
@@ -227,7 +227,12 @@ public final class DhtShell {
         byte[] publicKey = Utils.fromHex(arr[1]);
         byte[] privateKey = Utils.fromHex(arr[2]);
         String data = arr[3];
-        sm.dhtPutItem(publicKey, privateKey, new Entry(data), new byte[0]);
+	byte[] salt = null;
+	if (arr.length > 4) {
+            salt = arr[4].getBytes();
+	}
+        sm.dhtPutItem(publicKey, privateKey, new Entry(data),
+                salt == null ? new byte[0] : salt);
         print("Wait for completion of mput for public key: " + arr[1]);
     }
 
@@ -238,8 +243,14 @@ public final class DhtShell {
     private static void mget(SessionManager sm, String s) {
         String[] arr = s.split(" ");
         byte[] publicKey = Utils.fromHex(arr[1]);
+	byte[] salt = null;
+	if (arr.length > 2) {
+	    salt = arr[2].getBytes();
+	}
+
         print("Waiting a max of 20 seconds to get mutable data for public key: " + arr[1]);
-        SessionManager.MutableItem data = sm.dhtGetItem(publicKey, new byte[0], 20);
+        SessionManager.MutableItem data = sm.dhtGetItem(publicKey,
+                salt == null ? new byte[0] : salt, 20);
         print(data.item.toString());
     }
 
