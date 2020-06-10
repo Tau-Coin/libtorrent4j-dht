@@ -28,13 +28,15 @@ public final class DhtShell {
 
     private static final String Count_Nodes = "count_nodes: count nodes of dht";
 
+    private static final String Put_Bomb = "putbomb: put immutable item bombing";
+
     private static final String Quit = "quit: exit this application";
 
     private static final String Help = "commands list:" + "\n"
             + PutImmutableItem + "\n" + GetImmutableItem + "\n"
 	    + GetPeers + "\n" + GenKeyPair + "\n"
             + PutMutableItem + "\n" + GutMutableItem + "\n"
-	    + Count_Nodes + "\n" + Quit + "\n";
+	    + Count_Nodes + "\n" + Put_Bomb + "\n" + Quit + "\n";
 
     private static final SimpleDateFormat LogTimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -120,6 +122,8 @@ public final class DhtShell {
                 magnet(s, line);
             } else if (is_count_nodes(line)) {
                 count_nodes(s);
+            } else if (is_putbomb(line)) {
+                putBomb(s);
             } else if (is_invalid(line)) {
                 invalid(line);
             }
@@ -167,6 +171,22 @@ public final class DhtShell {
         String data = s.split(" ")[1];
         String sha1 = sm.dhtPutItem(new Entry(data)).toString();
         print("Wait for completion of put for key: " + sha1);
+    }
+
+    private static boolean is_putbomb(String s) {
+        return s.startsWith("putbomb"); 
+    }
+
+    private static void putBomb(SessionManager sm) {
+	print("starting put loop bombing......");
+        int i = 0;
+	int loop = 1000000;
+	while (i < loop) {
+            String sha1 = sm.dhtPutItem(new Entry(String.valueOf(i))).toString();
+	    print("Wait for completion of put for key: " + sha1 + ", value:" + i);
+	    i++;
+	}
+	print("ending put loop bombing......");
     }
 
     private static boolean is_get(String s) {
