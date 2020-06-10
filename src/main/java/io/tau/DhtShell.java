@@ -185,6 +185,12 @@ public final class DhtShell {
             String sha1 = sm.dhtPutItem(new Entry(String.valueOf(i))).toString();
 	    print("Wait for completion of put for key: " + sha1 + ", value:" + i);
 	    i++;
+
+	    try {
+	        Thread.sleep(60 * 1000);
+	    } catch (InterruptedException e) {
+	        e.printStackTrace();
+	    }
 	}
 	print("ending put loop bombing......");
     }
