@@ -36,7 +36,7 @@ public final class DhtShell {
             + PutMutableItem + "\n" + GutMutableItem + "\n"
 	    + Count_Nodes + "\n" + Quit + "\n";
 
-    private static final SimpleDateFormat LogTimeFormat = new SimpleDateFormat("yyyy-mm-dd HH:mm:ss");
+    private static final SimpleDateFormat LogTimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     public static void main(String[] args) throws Throwable {
 
