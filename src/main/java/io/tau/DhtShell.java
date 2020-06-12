@@ -91,7 +91,7 @@ public final class DhtShell {
 
         SessionManager s = new SessionManager();
         s.addListener(mainListener);
-        s.start();
+        s.start(SessionSettings.getTauSessionParams());
 
         Scanner in = new Scanner(System.in);
 	System.out.println("dht shell is ready");
