@@ -31,10 +31,10 @@ public final class SessionSettings {
         sb.append("dht.libtorrent.org:25401").append(",");
         sb.append("router.bittorrent.com:6881").append(",");
         sb.append("dht.transmissionbt.com:6881").append(",");
+	// tau nodes
+	sb.append("13.229.53.249:6881").append(",");
         // for DHT IPv6
         sb.append("router.silotis.us:6881");
-
-	// tau dht nodes
 
         return sb.toString();
     }
