@@ -24,8 +24,10 @@ dependencies {
     // This dependency is used by the application.
     implementation 'com.google.guava:guava:28.2-jre'
 
-    implementation 'org.libtorrent4j:libtorrent4j:1.2.3.0'
-    implementation 'org.libtorrent4j:libtorrent4j-linux:1.2.3.0'
+    //implementation 'org.libtorrent4j:libtorrent4j:1.2.3.0'
+    //implementation 'org.libtorrent4j:libtorrent4j-linux:1.2.3.0'
+
+    implementation files('libs/jlibtorrent-1.2.7.0.jar')
 
     // Use JUnit test framework
     testImplementation 'junit:junit:4.12'

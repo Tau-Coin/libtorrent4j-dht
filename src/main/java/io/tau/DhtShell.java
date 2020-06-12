@@ -1,7 +1,7 @@
 package io.tau;
 
-import org.libtorrent4j.*;
-import org.libtorrent4j.alerts.*;
+import com.frostwire.jlibtorrent.*;
+import com.frostwire.jlibtorrent.alerts.*;
 
 import java.io.File;
 import java.text.SimpleDateFormat;

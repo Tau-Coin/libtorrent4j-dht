@@ -2,7 +2,7 @@
 currDir=$(pwd)
 echo $currDir
 
-classpath=$currDir/libs/libtorrent4j.jar:$currDir/build/classes/java/main
+classpath=$currDir/libs/jlibtorrent-1.2.7.0.jar:$currDir/build/classes/java/main
 echo $classpath
 
 libpath="java.library.path=$currDir/libs"
