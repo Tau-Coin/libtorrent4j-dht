@@ -1,5 +1,7 @@
 package io.tau;
 
+import java.nio.ByteBuffer;
+
 public final class Utils {
 	private Utils(){}
 
@@ -24,4 +26,27 @@ public final class Utils {
 		}
 		return data;
 	}
+
+    public static String endpointFromHex(String s) {
+        byte[] bytes = fromHex(s);
+
+        String result = "";
+        for (int i = 0; i < 4; i++) {
+            if (i != 3) {
+                result += String.valueOf(Byte.toUnsignedInt(bytes[i])) + ".";
+            } else {
+                result += String.valueOf(Byte.toUnsignedInt(bytes[i]));
+            }
+        }
+
+        byte[] portBytes = new byte[2];
+        System.arraycopy(bytes, 4, portBytes, 0, 2);
+        result += ":" + fromByteArray(portBytes);
+
+        return result;
+    }
+
+    public static short fromByteArray(byte[] bytes) {
+        return ByteBuffer.wrap(bytes).getShort();
+    }
 }

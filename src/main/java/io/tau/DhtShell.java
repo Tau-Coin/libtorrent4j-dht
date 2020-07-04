@@ -2,11 +2,13 @@ package io.tau;
 
 import com.frostwire.jlibtorrent.*;
 import com.frostwire.jlibtorrent.alerts.*;
+import com.frostwire.jlibtorrent.swig.*;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Map;
 import java.util.Scanner;
 
 /**
@@ -30,13 +32,15 @@ public final class DhtShell {
 
     private static final String Put_Bomb = "putbomb: put immutable item bombing";
 
+    private static final String List_nodes = "list_nodes: list dht nodes";
+
     private static final String Quit = "quit: exit this application";
 
     private static final String Help = "commands list:" + "\n"
             + PutImmutableItem + "\n" + GetImmutableItem + "\n"
 	    + GetPeers + "\n" + GenKeyPair + "\n"
             + PutMutableItem + "\n" + GutMutableItem + "\n"
-	    + Count_Nodes + "\n" + Put_Bomb + "\n" + Quit + "\n";
+	    + Count_Nodes + "\n" + Put_Bomb + "\n" + List_nodes + "\n" + Quit + "\n";
 
     private static final SimpleDateFormat LogTimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -124,6 +128,8 @@ public final class DhtShell {
                 count_nodes(s);
             } else if (is_putbomb(line)) {
                 putBomb(s);
+            } else if (is_list_nodes(line)) {
+                list_nodes(s);
             } else if (is_invalid(line)) {
                 invalid(line);
             }
@@ -303,6 +309,47 @@ public final class DhtShell {
 
     private static void count_nodes(SessionManager s) {
         log("DHT contains " + s.stats().dhtNodes() + " nodes");
+    }
+
+    private static boolean is_list_nodes(String s) {
+        return s.startsWith("list_nodes");
+    }
+
+    private static void list_nodes(SessionManager s) {
+        byte[] state = new SessionHandle(s.swig()).saveState(SessionHandle.SAVE_DHT_STATE);
+        if (state == null) {
+            print("null state");
+            return;
+        }
+
+        //entry e = new entry(Vectors.bytes2byte_vector(state));
+        Entry stateEntry = Entry.bdecode(state);
+        if (stateEntry == null) {
+            print("decode entry err");
+            return;
+        }
+
+        Map<String, Entry> dir = stateEntry.dictionary();
+        Entry dhtState = dir.get("dht state");
+        if (dhtState == null) {
+            print("null dht state");
+            return;
+        }
+
+        Map<String, Entry> nodesDir = dhtState.dictionary();
+        Entry nodes = nodesDir.get("nodes");
+        Entry nodes6 = nodesDir.get("nodes6");
+
+        if (nodes != null) {
+            for (Entry n : nodes.list()) {
+                print(n.toString());
+            }
+        }
+        if (nodes6 != null) {
+            for (Entry n6 : nodes6.list()) {
+                //print(n6.toString());
+            }
+        }
     }
 
     private static boolean is_invalid(String s) {
