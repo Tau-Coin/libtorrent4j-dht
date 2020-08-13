@@ -5,10 +5,13 @@ import com.frostwire.jlibtorrent.alerts.*;
 import com.frostwire.jlibtorrent.swig.*;
 
 import java.io.File;
+import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Scanner;
 
 /**
@@ -360,4 +363,23 @@ public final class DhtShell {
         print("Invalid command: " + s + "\n" + "Try ? for help");
     }
 
+    private static String generateRandomString(int size) {
+       byte[] array = new byte[size];
+       new Random().nextBytes(array);
+
+       String result = "";
+       for (int i = 0; i < array.length; ++i) {
+           byte b = array[i];
+           result += "" + b;
+           print("result length:" + result.length());
+       }
+
+      return result;
+    }
+
+    private static byte[] generateRandomArray(int size) {
+        byte[] array = new byte[size];
+        new Random().nextBytes(array);
+        return array;
+    }
 }

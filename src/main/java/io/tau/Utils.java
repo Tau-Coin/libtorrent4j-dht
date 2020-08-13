@@ -30,20 +30,22 @@ public final class Utils {
     public static String endpointFromHex(String s) {
         byte[] bytes = fromHex(s);
 
-        String result = "";
-        for (int i = 0; i < 4; i++) {
-            if (i != 3) {
-                result += String.valueOf(Byte.toUnsignedInt(bytes[i])) + ".";
-            } else {
-                result += String.valueOf(Byte.toUnsignedInt(bytes[i]));
-            }
-        }
+        StringBuilder sb = new StringBuilder();
 
-        byte[] portBytes = new byte[2];
-        System.arraycopy(bytes, 4, portBytes, 0, 2);
-        result += ":" + fromByteArray(portBytes);
+        sb.append(bytes[0] & 0xFF);
+        sb.append(".");
+        sb.append(bytes[1] & 0xFF);
+        sb.append(".");
+        sb.append(bytes[2] & 0xFF);
+        sb.append(".");
+        sb.append(bytes[3] & 0xFF);
+        sb.append(":");
 
-        return result;
+        int port = bytes[0] & 0x000000FF;
+        port |= (bytes[1] << 8) & 0x00000FF00;
+        sb.append(port);
+
+        return sb.toString();
     }
 
     public static short fromByteArray(byte[] bytes) {
