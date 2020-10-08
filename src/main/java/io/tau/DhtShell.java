@@ -69,6 +69,11 @@ public final class DhtShell {
             public void alert(Alert<?> alert) {
                 AlertType type = alert.type();
 
+                if (type == AlertType.DHT_LOG) {
+                    DhtLogAlert a = (DhtLogAlert) alert;
+                    log(a.message());
+                }
+
                 if (type == AlertType.LISTEN_SUCCEEDED) {
                     ListenSucceededAlert a = (ListenSucceededAlert) alert;
                     log(a.message());
