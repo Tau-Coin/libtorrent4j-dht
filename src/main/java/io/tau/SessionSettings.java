@@ -18,7 +18,7 @@ public final class SessionSettings {
 
     public static SessionParams getTauSessionParams() {
         sp.set_str(settings_pack.string_types.listen_interfaces.swigValue(),
-                "0.0.0.0:" + sStarting_Port/*listenInterfaces()*/);
+                "0.0.0.0:0" /*sStarting_Port*//*listenInterfaces()*/);
         sStarting_Port++;
 
         session_params sparams = new session_params(sp);
