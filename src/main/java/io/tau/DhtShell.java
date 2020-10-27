@@ -74,6 +74,16 @@ public final class DhtShell {
                     log(a.message());
                 }
 
+                if (type == AlertType.LOG) {
+                    LogAlert a = (LogAlert) alert;
+                    log(a.message());
+                }
+
+                if (type == AlertType.DHT_PKT) {
+                    DhtPktAlert a = (DhtPktAlert) alert;
+                    log(a.message());
+                }
+
                 if (type == AlertType.LISTEN_SUCCEEDED) {
                     ListenSucceededAlert a = (ListenSucceededAlert) alert;
                     log(a.message());
