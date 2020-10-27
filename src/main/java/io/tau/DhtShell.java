@@ -55,7 +55,7 @@ public final class DhtShell {
 
     private static final String sUndefinedEntry = entry.data_type.undefined_t.toString();
 
-    private static final int Sessions_Count = 32;
+    private static final int Sessions_Count = 1;
 
     public static void main(String[] args) throws Throwable {
 
@@ -103,7 +103,7 @@ public final class DhtShell {
 
         List<SessionManager> sessions = new ArrayList<>();
         for (int i = 0; i < Sessions_Count; i++) {
-                SessionManager session = new SessionManager();
+                SessionManager session = new SessionManager(true);
                 session.addListener(mainListener);
                 session.start(SessionSettings.getTauSessionParams());
                 sessions.add(session);
@@ -141,6 +141,8 @@ public final class DhtShell {
                 quit(s);
             } else if (is_put(line)) {
                 put(s, line);
+            } else if (is_preformatPut(line)) {
+                preformatPut(s, line);
             } else if (is_msput(line)) {
                 msput(sessions, line);
             } else if (is_get(line)) {
@@ -223,6 +225,17 @@ public final class DhtShell {
         String sha1 = sm.dhtPutItem(new Entry(data)).toString();
         print("Wait for completion of put for key: " + sha1);
     }
+
+    private static boolean is_preformatPut(String s) {
+        return s.startsWith("preformatPut ");
+    }
+
+    private static void preformatPut(SessionManager sm, String s) {
+        String data = s.split(" ")[1];
+        String sha1 = sm.dhtPutItem(Utils.fromPreformattedBytes(data.getBytes())).toString();
+        print("Wait for completion of put for key: " + sha1);
+    }
+
 
     private static boolean is_msput(String s) {
         return s.startsWith("msput ");

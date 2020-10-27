@@ -1,5 +1,10 @@
 package io.tau;
 
+import com.frostwire.jlibtorrent.Entry;
+import com.frostwire.jlibtorrent.swig.entry;
+import com.frostwire.jlibtorrent.swig.byte_vector;
+import com.frostwire.jlibtorrent.Vectors;
+
 import java.nio.ByteBuffer;
 
 public final class Utils {
@@ -50,5 +55,10 @@ public final class Utils {
 
     public static short fromByteArray(byte[] bytes) {
         return ByteBuffer.wrap(bytes).getShort();
+    }
+
+    public static Entry fromPreformattedBytes(byte[] data) {
+        entry e = entry.from_preformatted_bytes(Vectors.bytes2byte_vector(data));
+        return new Entry(e);
     }
 }
