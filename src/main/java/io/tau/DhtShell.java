@@ -57,6 +57,8 @@ public final class DhtShell {
 
     private static final int Sessions_Count = 1;
 
+    private static final UdpEndpoint TestEP = new UdpEndpoint("13.229.53.249", 8661);
+
     public static void main(String[] args) throws Throwable {
 
         AlertListener mainListener = new AlertListener() {
@@ -82,6 +84,8 @@ public final class DhtShell {
                 if (type == AlertType.DHT_PKT) {
                     DhtPktAlert a = (DhtPktAlert) alert;
                     log(a.message());
+
+                    print("pkt content:" + new String(a.pktBuf()));
                 }
 
                 if (type == AlertType.LISTEN_SUCCEEDED) {
@@ -187,6 +191,8 @@ public final class DhtShell {
                 applySettings(s);
             } else if (is_compress(line)) {
                 compress(s, line);
+            } else if (is_directRequest(line)) {
+                directRequest(s, line);
             } else if (is_invalid(line)) {
                 invalid(line);
             }
@@ -242,10 +248,39 @@ public final class DhtShell {
 
     private static void preformatPut(SessionManager sm, String s) {
         String data = s.split(" ")[1];
-        String sha1 = sm.dhtPutItem(Utils.fromPreformattedBytes(data.getBytes())).toString();
+        Entry item = Utils.fromPreformattedBytes(data.getBytes());
+        print("preformatPut:" + item + ", size:" + item.swig().preformatted_bytes().size());
+        print("content:" + new String(Utils.preformattedEntryToBytes(item)));
+        String sha1 = sm.dhtPutItem(item).toString();
         print("Wait for completion of put for key: " + sha1);
     }
 
+    private static boolean is_directRequest(String s) {
+        return s.startsWith("directRequest ");
+    }
+
+    private static void directRequest(SessionManager sm, String s) {
+        String data = s.split(" ")[1];
+        entry item = Utils.fromPreformattedBytes(data.getBytes()).swig();
+
+        entry pkt = new entry();
+        pkt.set("y", "q");
+        pkt.set("q", "put");
+        pkt.set("t", "pX");
+        pkt.set("v", "LT01");
+
+        entry a = new entry();
+        String id = "1234567890";
+        String token = "abcdefg";
+        a.set("id", Vectors.bytes2byte_vector(id.getBytes()));
+        a.set("token", Vectors.bytes2byte_vector(token.getBytes()));
+        a.set("v", item);
+
+        pkt.set("a", a);
+
+        new SessionHandle(sm.swig()).dhtDirectRequest(TestEP, new Entry(pkt));
+        print("direct request was sent");
+    }
 
     private static boolean is_msput(String s) {
         return s.startsWith("msput ");

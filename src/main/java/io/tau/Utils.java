@@ -61,4 +61,13 @@ public final class Utils {
         entry e = entry.from_preformatted_bytes(Vectors.bytes2byte_vector(data));
         return new Entry(e);
     }
+
+    public static byte[] preformattedEntryToBytes(Entry item) {
+        if (item == null || item.swig().type() != entry.data_type.preformatted_t) {
+            return null;
+        }
+
+        byte_vector bv = item.swig().preformatted_bytes();
+        return Vectors.byte_vector2bytes(bv);
+    }
 }
