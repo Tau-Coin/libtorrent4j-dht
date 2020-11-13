@@ -30,7 +30,7 @@ public final class SessionSettings {
         //ds.setMax_dht_items(DHT_MAX_ITEMS);
         //ds.setUpload_rate_limit(512);
         //ds.setRead_only(true);
-        //ds.setSearch_branching(1);
+        ds.setSearch_branching(1);
         ds.setMax_peers_reply(0);
         ds.setMax_fail_count(10);
         ds.setMax_torrents(0);
