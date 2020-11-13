@@ -4,8 +4,7 @@ import com.frostwire.jlibtorrent.*;
 import com.frostwire.jlibtorrent.alerts.*;
 import com.frostwire.jlibtorrent.swig.*;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -38,6 +37,10 @@ public final class DhtShell {
 
     private static final String Put_Bomb = "putbomb: put immutable item bombing";
 
+    private static final String Batch_Put = "batchput <loop-number> <file>: put random string and write hash into <file>";
+
+    private static final String Batch_Get = "batchget <file>: get item with sha1 hash from <file>";
+
     private static final String List_nodes = "list_nodes: list dht nodes";
 
     private static final String Compress = "compress <rand bytes size> <test accounts>: compress tests";
@@ -49,6 +52,7 @@ public final class DhtShell {
 	        + GetPeers + "\n" + GenKeyPair + "\n"
             + PutMutableItem + "\n" + MSPutMutableItem + "\n" + GutMutableItem + "\n"
 	        + Count_Nodes + "\n" + Put_Bomb + "\n" + List_nodes + "\n"
+            + Batch_Put + "\n" + Batch_Get + "\n"
             + Compress + "\n" + Quit + "\n";
 
     private static final SimpleDateFormat LogTimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -117,7 +121,7 @@ public final class DhtShell {
 
         List<SessionManager> sessions = new ArrayList<>();
         for (int i = 0; i < Sessions_Count; i++) {
-                SessionManager session = new SessionManager(true);
+                SessionManager session = new SessionManager();
                 session.addListener(mainListener);
                 session.start(SessionSettings.getTauSessionParams());
                 sessions.add(session);
@@ -181,6 +185,10 @@ public final class DhtShell {
                 count_nodes(s);
             } else if (is_putbomb(line)) {
                 putBomb(s);
+            } else if (is_batchput(line)) {
+                batchput(s, line);
+            } else if (is_batchget(line)) {
+                batchget(s, line);
             } else if (is_list_nodes(line)) {
                 list_nodes(s);
             } else if (is_pause(line)) {
@@ -313,6 +321,132 @@ public final class DhtShell {
 	    }
 	    print("ending put loop bombing......");
     }
+
+    private static boolean is_batchput(String s) {
+        return s.startsWith("batchput ");
+    }
+
+    private static void batchput(SessionManager sm, String s) {
+        String[] options = s.split(" ");
+        if (options.length != 3) {
+            print("Usage:\n" + Batch_Put);
+            return;
+        }
+
+        int loop;
+
+        try {
+            loop = Integer.parseInt(options[1]);
+        } catch (Exception e) {
+            e.printStackTrace();
+            print("Usage:\n" + Batch_Put);
+            return;
+        }
+
+        FileWriter writer;
+        BufferedWriter bw;
+
+        try {
+            writer = new FileWriter(options[2]);
+            bw = new BufferedWriter(writer);
+        } catch (Exception e) {
+            e.printStackTrace();
+            print("incorrect file path");
+            return;
+        }
+
+        print("starting batch put......");
+
+        int i = 0;
+        while (i < loop) {
+            String sha1 = sm.dhtPutItem(new Entry(generateRandomString(20))).toString();
+            print("Wait for completion of put for key: " + sha1 + ", loop:" + i);
+
+            try {
+                bw.write(sha1 + "\n");
+                bw.flush();
+            } catch (Exception e) {
+                e.printStackTrace();
+                break;
+            }
+
+            i++;
+
+            try {
+                Thread.sleep(20 * 1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        try {
+            bw.close();
+            writer.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        print("ending batch put......");
+    }
+
+    private static boolean is_batchget(String s) {
+        return s.startsWith("batchget ");
+    }
+
+    private static void batchget(SessionManager sm, String s) {
+        String[] options = s.split(" ");
+        if (options.length != 2) {
+            print("Usage:\n" + Batch_Get);
+            return;
+        }
+
+        FileReader reader;
+        BufferedReader br;
+
+        try {
+            reader = new FileReader(options[1]);
+            br = new BufferedReader(reader);
+        } catch (Exception e) {
+            e.printStackTrace();
+            print("incorrect file path");
+            return;
+        }
+
+        print("starting batch get......");
+
+        String sha1;
+
+        int total = 0;
+        int failed = 0;
+
+        try {
+            while ((sha1 = br.readLine()) != null) {
+
+                total++;
+
+                long startTime = System.nanoTime();
+                Entry data = sm.dhtGetItem(new Sha1Hash(sha1), 10);
+                print("get " + sha1 + ", cost " + (System.nanoTime() - startTime) / 1000000 + "ms");
+
+                if (data == null || data.swig().type() == entry.data_type.undefined_t) {
+                    print("get failed:" + sha1);
+                    failed++;
+                }
+             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try {
+            br.close();
+            reader.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        print("ending batch gut, fail rate:(" + failed + "/" + total + ")");
+    }
+
 
     private static boolean is_get(String s) {
         return s.startsWith("get ");
@@ -596,7 +730,7 @@ public final class DhtShell {
        for (int i = 0; i < array.length; ++i) {
            byte b = array[i];
            result += "" + b;
-           print("result length:" + result.length());
+           //print("result length:" + result.length());
        }
 
       return result;

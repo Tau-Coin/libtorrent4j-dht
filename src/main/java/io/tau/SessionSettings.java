@@ -21,9 +21,21 @@ public final class SessionSettings {
                 "0.0.0.0:0" /*sStarting_Port*//*listenInterfaces()*/);
         sStarting_Port++;
 
+        //sp.set_int(settings_pack.int_types.upload_rate_limit.swigValue(), 512);
+        //sp.set_int(settings_pack.int_types.download_rate_limit.swigValue(), 512);
+        //sp.set_int(settings_pack.int_types.dht_upload_rate_limit.swigValue(), 512);
+
         session_params sparams = new session_params(sp);
         dht_settings ds = new dht_settings();
-        ds.setMax_dht_items(DHT_MAX_ITEMS);
+        //ds.setMax_dht_items(DHT_MAX_ITEMS);
+        //ds.setUpload_rate_limit(512);
+        //ds.setRead_only(true);
+        //ds.setSearch_branching(1);
+        ds.setMax_peers_reply(0);
+        ds.setMax_fail_count(10);
+        ds.setMax_torrents(0);
+        ds.setMax_peers(0);
+        ds.setMax_torrent_search_reply(0);
         sparams.setDht_settings(ds);
 
         return new SessionParams(sparams);
@@ -39,7 +51,7 @@ public final class SessionSettings {
         // for DHT IPv6
         sb.append("router.silotis.us:6881");
         //sb.append("tau.geekgalaxy.com:32777").append(",");
-        //sb.append("tau.geekgalaxy.com:32778");
+        //sb.append("13.229.53.249:8661");
 
         return sb.toString();
     }
