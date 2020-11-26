@@ -70,4 +70,10 @@ public final class Utils {
         byte_vector bv = item.swig().preformatted_bytes();
         return Vectors.byte_vector2bytes(bv);
     }
+
+    public static Entry fromStringBytes(byte[] data) {
+        entry e = entry.from_string_bytes(Vectors.bytes2byte_vector(data));
+        return new Entry(e);
+    }
+
 }

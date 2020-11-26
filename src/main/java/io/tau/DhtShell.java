@@ -5,14 +5,19 @@ import com.frostwire.jlibtorrent.alerts.*;
 import com.frostwire.jlibtorrent.swig.*;
 
 import java.io.*;
+import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
+
 
 /**
  * @author gubatron
@@ -43,6 +48,10 @@ public final class DhtShell {
 
     private static final String List_nodes = "list_nodes: list dht nodes";
 
+    private static final String Direct_Request = "directReqest <ip:port> <string data>: directly send data";
+
+    private static final String External_Address = "externalAddress: print nat public ip";
+
     private static final String Compress = "compress <rand bytes size> <test accounts>: compress tests";
 
     private static final String Quit = "quit: exit this application";
@@ -53,6 +62,7 @@ public final class DhtShell {
             + PutMutableItem + "\n" + MSPutMutableItem + "\n" + GutMutableItem + "\n"
 	        + Count_Nodes + "\n" + Put_Bomb + "\n" + List_nodes + "\n"
             + Batch_Put + "\n" + Batch_Get + "\n"
+            + Direct_Request + "\n" + External_Address + "\n"
             + Compress + "\n" + Quit + "\n";
 
     private static final SimpleDateFormat LogTimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -62,6 +72,20 @@ public final class DhtShell {
     private static final int Sessions_Count = 1;
 
     private static final UdpEndpoint TestEP = new UdpEndpoint("13.229.53.249", 8661);
+
+    static class PutCallback {
+
+        long start;
+        long end;
+
+        public PutCallback() {
+            this.start = System.nanoTime();
+        }
+    }
+
+    // put cache
+    private static Map<String, PutCallback> immutablePutCache = Collections.synchronizedMap(
+            new HashMap<String, PutCallback>());
 
     public static void main(String[] args) throws Throwable {
 
@@ -115,13 +139,23 @@ public final class DhtShell {
                 if (type == AlertType.DHT_PUT) {
                     DhtPutAlert a = (DhtPutAlert) alert;
                     log(a.message());
+
+                    // statistic put time cost
+                    if (immutablePutCache.size() > 0) {
+                        Sha1Hash sha1 = a.target();
+                        if (sha1 != null) {
+                            PutCallback cb = immutablePutCache.get(sha1.toString());
+                            cb.end = System.nanoTime();
+                            print(sha1.toString() + ", timecost:" + (cb.end - cb.start) / 1000 + "ms");
+                        }
+                    }
                 }
             }
         };
 
         List<SessionManager> sessions = new ArrayList<>();
         for (int i = 0; i < Sessions_Count; i++) {
-                SessionManager session = new SessionManager();
+                SessionManager session = new SessionManager(true);
                 session.addListener(mainListener);
                 session.start(SessionSettings.getTauSessionParams());
                 sessions.add(session);
@@ -167,6 +201,8 @@ public final class DhtShell {
                 get(s, line);
             } else if (is_getbomb(line)) {
                 getbomb(s, line);
+            } else if (is_externalAddress(line)) {
+                externalAddress(s);
             } else if (is_get_peers(line)) {
                 get_peers(s, line);
             } else if (is_announce(line)) {
@@ -191,6 +227,8 @@ public final class DhtShell {
                 batchget(s, line);
             } else if (is_list_nodes(line)) {
                 list_nodes(s);
+            } else if (is_set_searching_branch(line)) {
+                set_searching_branch(s);
             } else if (is_pause(line)) {
                 pause(s);
             } else if (is_resume(line)) {
@@ -268,8 +306,20 @@ public final class DhtShell {
     }
 
     private static void directRequest(SessionManager sm, String s) {
-        String data = s.split(" ")[1];
-        entry item = Utils.fromPreformattedBytes(data.getBytes()).swig();
+        String[] args = s.split(" ");
+        if (args.length != 3) {
+            print("Usage:" + Direct_Request);
+            return;
+        }
+
+        String ep = args[1];
+        String data = args[2];
+
+        String ip = ep.split(":")[0];
+        int port = Integer.parseInt(ep.split(":")[1]);
+        UdpEndpoint targetEP = new UdpEndpoint(ip, port);
+
+        entry item = Utils.fromStringBytes(data.getBytes()).swig();
 
         entry pkt = new entry();
         pkt.set("y", "q");
@@ -286,7 +336,7 @@ public final class DhtShell {
 
         pkt.set("a", a);
 
-        new SessionHandle(sm.swig()).dhtDirectRequest(TestEP, new Entry(pkt));
+        new SessionHandle(sm.swig()).dhtDirectRequest(targetEP, new Entry(pkt));
         print("direct request was sent");
     }
 
@@ -334,6 +384,10 @@ public final class DhtShell {
         }
 
         int loop;
+        BigInteger dataCost = BigInteger.ZERO;
+        BigInteger timeCost = BigInteger.ZERO;
+
+        List<String> cache = new ArrayList<String>();
 
         try {
             loop = Integer.parseInt(options[1]);
@@ -359,7 +413,13 @@ public final class DhtShell {
 
         int i = 0;
         while (i < loop) {
-            String sha1 = sm.dhtPutItem(new Entry(generateRandomString(20))).toString();
+            Entry randomData = Utils.fromStringBytes(generateRandomArray(990));
+            byte[] bencode = randomData.bencode();
+            dataCost = dataCost.add(BigInteger.valueOf((long)bencode.length));
+
+            String sha1 = sm.dhtPutItem(randomData).toString();
+            immutablePutCache.put(sha1, new PutCallback());
+            cache.add(sha1);
             print("Wait for completion of put for key: " + sha1 + ", loop:" + i);
 
             try {
@@ -386,7 +446,24 @@ public final class DhtShell {
             e.printStackTrace();
         }
 
+        try {
+            Thread.sleep(30 * 1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        for (String hash : cache) {
+            PutCallback cb = immutablePutCache.get(hash);
+            if (cb != null) {
+                timeCost = timeCost.add(BigInteger.valueOf((cb.end - cb.start) / 1000000));
+            }
+
+            immutablePutCache.remove(hash);
+        }
+
         print("ending batch put......");
+        print("data cost:" + dataCost.toString(10) + " bytes, average time cost:"
+                + timeCost.divide(BigInteger.valueOf((long)loop)) + " ms");
     }
 
     private static boolean is_batchget(String s) {
@@ -415,6 +492,8 @@ public final class DhtShell {
         print("starting batch get......");
 
         String sha1;
+        BigInteger dataGot = BigInteger.ZERO;
+        BigInteger timeCost = BigInteger.ZERO;
 
         int total = 0;
         int failed = 0;
@@ -426,11 +505,16 @@ public final class DhtShell {
 
                 long startTime = System.nanoTime();
                 Entry data = sm.dhtGetItem(new Sha1Hash(sha1), 10);
-                print("get " + sha1 + ", cost " + (System.nanoTime() - startTime) / 1000000 + "ms");
+                long t = (System.nanoTime() - startTime) / 1000000;
+                timeCost = timeCost.add(BigInteger.valueOf(t));
+                print("get " + sha1 + ", cost " + t + "ms");
 
                 if (data == null || data.swig().type() == entry.data_type.undefined_t) {
                     print("get failed:" + sha1);
                     failed++;
+                } else {
+                    byte[] bencode = data.bencode();
+                    dataGot = dataGot.add(BigInteger.valueOf((long)bencode.length));
                 }
              }
         } catch (Exception e) {
@@ -444,7 +528,11 @@ public final class DhtShell {
             e.printStackTrace();
         }
 
-        print("ending batch gut, fail rate:(" + failed + "/" + total + ")");
+        BigInteger average = timeCost.divide(BigInteger.valueOf((long)total));
+
+        print("ending batch gut, fail rate:(" + failed + "/" + total + ")"
+                + ", effective got:" + dataGot.toString(10) + " bytes"
+                + ", average time:" + average.toString(10) + " ms");
     }
 
 
@@ -495,6 +583,14 @@ public final class DhtShell {
         }
 
         print("getbomb is ending");
+    }
+
+    private static boolean is_externalAddress(String s) {
+        return s.startsWith("externalAddress");
+    }
+
+    private static void externalAddress(SessionManager sm) {
+        print(sm.externalAddress());
     }
 
     private static boolean is_get_peers(String s) {
@@ -604,6 +700,17 @@ public final class DhtShell {
 
     private static void count_nodes(SessionManager s) {
         log("DHT contains " + s.stats().dhtNodes() + " nodes");
+    }
+
+    private static boolean is_set_searching_branch(String s) {
+        return s.startsWith("set_searching_branch");
+    }
+
+    private static void set_searching_branch(SessionManager s) {
+        DhtSettings ds = new DhtSettings();
+        ds.setSearchBranching(8);
+        s.swig().set_dht_settings(ds.swig());
+        log("set searching branch into 8");
     }
 
     private static boolean is_pause(String s) {
