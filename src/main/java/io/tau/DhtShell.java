@@ -69,7 +69,7 @@ public final class DhtShell {
 
     private static final String sUndefinedEntry = entry.data_type.undefined_t.toString();
 
-    private static final int Sessions_Count = 1;
+    private static final int Sessions_Count = 5;
 
     private static final UdpEndpoint TestEP = new UdpEndpoint("13.229.53.249", 8661);
 
@@ -98,7 +98,7 @@ public final class DhtShell {
             @Override
             public void alert(Alert<?> alert) {
                 AlertType type = alert.type();
-
+				/*
                 if (type == AlertType.DHT_LOG) {
                     DhtLogAlert a = (DhtLogAlert) alert;
                     log(a.message());
@@ -115,7 +115,7 @@ public final class DhtShell {
 
                     print("pkt content:" + new String(a.pktBuf()));
                 }
-
+				*/
                 if (type == AlertType.LISTEN_SUCCEEDED) {
                     ListenSucceededAlert a = (ListenSucceededAlert) alert;
                     log(a.message());
@@ -210,7 +210,7 @@ public final class DhtShell {
             } else if (is_mkeys(line)) {
                 mkeys(line);
             } else if (is_mput(line)) {
-                mput(s, line);
+                mput(sessions, line);
             } else if (is_msmput(line)) {
                 msmput(sessions, line);
             } else if (is_mget(line)) {
@@ -283,9 +283,16 @@ public final class DhtShell {
     }
 
     private static void put(SessionManager sm, String s) {
-        String data = s.split(" ")[1];
-        String sha1 = sm.dhtPutItem(new Entry(data)).toString();
-        print("Wait for completion of put for key: " + sha1);
+		for(int i= 0; i< 10; i++){
+        	String data = "test put immubtable item"+ i;
+        	String sha1 = sm.dhtPutItem(new Entry(data)).toString();
+        	print("Wait for completion of put for key: " + sha1);
+            try {
+                Thread.sleep(60 * 1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+		}
     }
 
     private static boolean is_preformatPut(String s) {
@@ -640,18 +647,26 @@ public final class DhtShell {
         return s.startsWith("mput ");
     }
 
-    private static void mput(SessionManager sm, String s) {
-        String[] arr = s.split(" ");
-        byte[] publicKey = Utils.fromHex(arr[1]);
-        byte[] privateKey = Utils.fromHex(arr[2]);
-        String data = arr[3];
-	    byte[] salt = null;
-	    if (arr.length > 4) {
-            salt = arr[4].getBytes();
-	    }
-        sm.dhtPutItem(publicKey, privateKey, new Entry(data),
-                salt == null ? new byte[0] : salt);
-        print("Wait for completion of mput for public key: " + arr[1]);
+    private static void mput(List<SessionManager> smList, String s) {
+        byte[] publicKey = Utils.fromHex("3e87c35d2079858d88dcb113edadaf1b339fcd4f74c539faa9a9bd59e787f124");
+        byte[] privateKey = Utils.fromHex("f008065e3ff567d4471231a4a0609e118b28f0639f9768d3f8bb123f8f0b38706ade0527cb0dd1e57ad0003fbf8e5af51c0bf0471e639b4920ab49ac17ff88f1");
+	    byte[] salt = "test".getBytes();
+
+		int sizeSession = smList.size();	
+
+		for(int i = 0; i< 10; i++){
+			SessionManager sm = smList.get(i%sizeSession);
+        	String data = "put mutable item";
+        	sm.dhtPutItem(publicKey, privateKey, new Entry(data),
+                	salt == null ? new byte[0] : salt);
+        	print("Wait for completion of mput for public key: " + publicKey);
+
+        	try {
+            	Thread.sleep(60 * 1000);
+        	} catch (InterruptedException e) {
+            	e.printStackTrace();
+        	}
+		}
     }
 
     private static boolean is_msmput(String s) {
@@ -660,7 +675,7 @@ public final class DhtShell {
 
     private static void msmput(List<SessionManager> smList, String s) {
         for (SessionManager sm : smList) {
-            mput(sm, s);
+            //mput(sm, s);
         }
     }
 

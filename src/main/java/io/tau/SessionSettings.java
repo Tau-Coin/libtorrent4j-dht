@@ -46,16 +46,15 @@ public final class SessionSettings {
     public static String dhtBootstrapNodes() {
         StringBuilder sb = new StringBuilder();
 
-		/*
         sb.append("dht.libtorrent.org:25401").append(",");
         sb.append("router.bittorrent.com:6881").append(",");
         sb.append("router.utorrent.com:6881").append(",");
         sb.append("dht.transmissionbt.com:6881").append(",");
-		*/
+
         // for DHT IPv6
-        //sb.append("router.silotis.us:6881");
+        sb.append("router.silotis.us:6881");
         //sb.append("tau.geekgalaxy.com:32777").append(",");
-        sb.append("13.229.53.249:8661");
+        //sb.append("13.229.53.249:8661");
 
         return sb.toString();
     }
