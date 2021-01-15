@@ -46,6 +46,8 @@ public final class DhtShell {
 
     private static final String Batch_Get = "batchget <file>: get item with sha1 hash from <file>";
 
+    private static final String Unsync_Batch_Get = "unsync_batchget <file>: get item with sha1 hash from <file>";
+
     private static final String List_nodes = "list_nodes: list dht nodes";
 
     private static final String Direct_Request = "directReqest <ip:port> <string data>: directly send data";
@@ -69,7 +71,7 @@ public final class DhtShell {
 
     private static final String sUndefinedEntry = entry.data_type.undefined_t.toString();
 
-    private static final int Sessions_Count = 5;
+    private static final int Sessions_Count = 1;
 
     private static final UdpEndpoint TestEP = new UdpEndpoint("13.229.53.249", 8661);
 
@@ -83,9 +85,40 @@ public final class DhtShell {
         }
     }
 
+    static class GetCallback {
+
+        long start;
+        long end;
+
+        public GetCallback() {
+            this.start = System.nanoTime();
+        }
+    }
+
     // put cache
     private static Map<String, PutCallback> immutablePutCache = Collections.synchronizedMap(
             new HashMap<String, PutCallback>());
+
+    private static Map<String, GetCallback> immutableGetCache = Collections.synchronizedMap(
+            new HashMap<String, GetCallback>());
+
+    static class GetTracker {
+
+        BigInteger timeCost;
+
+        int total;
+        int failed;
+        int success;
+
+        public GetTracker() {
+            this.timeCost = BigInteger.ZERO;
+            this.total = 0;
+            this.failed = 0;
+            this.success = 0;
+        }
+    }
+
+    private static GetTracker sGetTracker = new GetTracker();
 
     public static void main(String[] args) throws Throwable {
 
@@ -134,6 +167,7 @@ public final class DhtShell {
 		        if (type == AlertType.DHT_IMMUTABLE_ITEM) {
 		            DhtImmutableItemAlert a = (DhtImmutableItemAlert) alert;
 		            log(a.message());
+                    handleImmutableGot(a);
 		        }
 
                 if (type == AlertType.DHT_PUT) {
@@ -155,7 +189,7 @@ public final class DhtShell {
 
         List<SessionManager> sessions = new ArrayList<>();
         for (int i = 0; i < Sessions_Count; i++) {
-                SessionManager session = new SessionManager(true);
+                SessionManager session = new SessionManager();
                 session.addListener(mainListener);
                 session.start(SessionSettings.getTauSessionParams());
                 sessions.add(session);
@@ -215,6 +249,8 @@ public final class DhtShell {
                 msmput(sessions, line);
             } else if (is_mget(line)) {
                 mget(s, line);
+            } else if (is_async_mget(line)) {
+                async_mget(s, line);
             } else if (is_magnet(line)) {
                 magnet(s, line);
             } else if (is_count_nodes(line)) {
@@ -225,6 +261,8 @@ public final class DhtShell {
                 batchput(s, line);
             } else if (is_batchget(line)) {
                 batchget(s, line);
+            } else if (is_unsync_batchget(line)) {
+                unsync_batchget(s, line);
             } else if (is_list_nodes(line)) {
                 list_nodes(s);
             } else if (is_set_searching_branch(line)) {
@@ -542,6 +580,100 @@ public final class DhtShell {
                 + ", average time:" + average.toString(10) + " ms");
     }
 
+    private static boolean is_unsync_batchget(String s) {
+        return s.startsWith("unsync_batchget ");
+    }
+
+    private static void unsync_batchget(SessionManager sm, String s) {
+        String[] options = s.split(" ");
+        if (options.length != 2) {
+            print("Usage:\n" + Unsync_Batch_Get);
+            return;
+        }
+
+        FileReader reader;
+        BufferedReader br;
+
+        try {
+            reader = new FileReader(options[1]);
+            br = new BufferedReader(reader);
+        } catch (Exception e) {
+            e.printStackTrace();
+            print("incorrect file path");
+            return;
+        }
+
+        print("starting unsync batch get......");
+
+        String sha1;
+        SessionHandle handle = new SessionHandle(sm.swig());
+
+        try {
+            while ((sha1 = br.readLine()) != null) {
+
+                sGetTracker.total++;
+
+                handle.dhtGetItem(new Sha1Hash(sha1));
+                immutableGetCache.put(sha1, new GetCallback());
+
+                //Thread.sleep(100);
+             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try {
+            br.close();
+            reader.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        print("wait for ending");
+
+        while (true) {
+            if (sGetTracker.failed + sGetTracker.success == sGetTracker.total) {
+                BigInteger average = sGetTracker.timeCost.divide(
+                    BigInteger.valueOf((long)sGetTracker.total));
+                print("ending unsync batch get, fail rate:(" + sGetTracker.failed
+                    + "/" + sGetTracker.total + ")"
+                    + ", average time:" + average.toString(10) + " ms");
+                break;
+            } else {
+                try {
+                    Thread.sleep(10 * 1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private static void handleImmutableGot(DhtImmutableItemAlert a) {
+
+        Sha1Hash sha1 = a.target();
+        GetCallback cb = immutableGetCache.get(sha1.toString());
+
+        if (cb == null) {
+            print("unknow immutable item:" + sha1.toString());
+            return;
+        }
+
+        cb.end = System.nanoTime();
+        long t = (cb.end - cb.start) / 1000000;
+        print("get " + sha1.toString() + ", cost " + t + "ms");
+        sGetTracker.timeCost = sGetTracker.timeCost.add(BigInteger.valueOf(t));
+
+        Entry item = a.item();
+        if (item == null || item.swig().type() == entry.data_type.undefined_t) {
+            print("get failed:" + sha1);
+            sGetTracker.failed++;
+        } else {
+            sGetTracker.success++;
+        }
+
+        immutableGetCache.remove(sha1.toString());
+    }
 
     private static boolean is_get(String s) {
         return s.startsWith("get ");
@@ -695,6 +827,23 @@ public final class DhtShell {
         SessionManager.MutableItem data = sm.dhtGetItem(publicKey,
                 salt == null ? new byte[0] : salt, 20);
         print(data.item.toString());
+    }
+
+    private static boolean is_async_mget(String s) {
+        return s.startsWith("async_mget ");
+    }
+
+    private static void async_mget(SessionManager sm, String s) {
+        String[] arr = s.split(" ");
+        byte[] publicKey = Utils.fromHex(arr[1]);
+        byte[] salt = null;
+        if (arr.length > 2) {
+            salt = arr[2].getBytes();
+        }
+
+        print("async getting mutable item");
+        new SessionHandle(sm.swig()).dhtGetItem(publicKey,
+                salt == null ? new byte[0] : salt);
     }
 
     private static boolean is_magnet(String s) {
