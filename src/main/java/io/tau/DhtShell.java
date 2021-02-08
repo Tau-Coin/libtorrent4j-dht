@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 
+import static com.frostwire.jlibtorrent.SessionManager.MutableItem;
 
 /**
  * @author gubatron
@@ -131,12 +132,13 @@ public final class DhtShell {
             @Override
             public void alert(Alert<?> alert) {
                 AlertType type = alert.type();
-				/*
+
                 if (type == AlertType.DHT_LOG) {
                     DhtLogAlert a = (DhtLogAlert) alert;
                     log(a.message());
                 }
 
+                /*
                 if (type == AlertType.LOG) {
                     LogAlert a = (LogAlert) alert;
                     log(a.message());
@@ -237,6 +239,8 @@ public final class DhtShell {
                 getbomb(s, line);
             } else if (is_externalAddress(line)) {
                 externalAddress(s);
+            } else if (is_ping(line)) {
+                ping(s, line);
             } else if (is_get_peers(line)) {
                 get_peers(s, line);
             } else if (is_announce(line)) {
@@ -245,6 +249,10 @@ public final class DhtShell {
                 mkeys(line);
             } else if (is_mput(line)) {
                 mput(sessions, line);
+            } else if (is_multi_mget(line)) {
+                multi_mget(s, line);
+            } else if (is_multi_mput(line)) {
+                multi_mput(s, line);
             } else if (is_msmput(line)) {
                 msmput(sessions, line);
             } else if (is_mget(line)) {
@@ -261,6 +269,8 @@ public final class DhtShell {
                 batchput(s, line);
             } else if (is_batchget(line)) {
                 batchget(s, line);
+            } else if (is_mbatchget(line)) {
+                mbatchget(s, line);
             } else if (is_unsync_batchget(line)) {
                 unsync_batchget(s, line);
             } else if (is_list_nodes(line)) {
@@ -477,11 +487,12 @@ public final class DhtShell {
 
             i++;
 
+            /*
             try {
                 Thread.sleep(20 * 1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
-            }
+            }*/
         }
 
         try {
@@ -578,6 +589,104 @@ public final class DhtShell {
         print("ending batch gut, fail rate:(" + failed + "/" + total + ")"
                 + ", effective got:" + dataGot.toString(10) + " bytes"
                 + ", average time:" + average.toString(10) + " ms");
+    }
+
+    private static boolean is_mbatchget(String s) {
+        return s.startsWith("mbatchget");
+    }
+
+    private static void mbatchget(SessionManager sm, String s) {
+        byte[] seed = Ed25519.createSeed();
+
+        Pair<byte[], byte[]> keypair = Ed25519.createKeypair(seed);
+        byte[] publicKey = keypair.first;
+        byte[] privateKey = keypair.second;
+
+
+        byte[][] keys = new byte[2][];
+        keys[0] = publicKey;
+        keys[1] = privateKey;
+
+        String msg = "Save this key pair\n";
+        msg += "Public: " + Utils.toHex(keys[0]) + "\n";
+        msg += "Private: " + Utils.toHex(keys[1]) + "\n";
+        print(msg);
+
+        String salt = "taucoin";
+        Entry randomData = Utils.fromStringBytes(generateRandomArray(10));
+        sm.dhtPutItem(publicKey, privateKey, randomData, salt.getBytes());
+
+        try {
+            Thread.sleep(60 * 1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        for (int i = 0; i < 1000; i++) {
+            long start = System.nanoTime();
+            MutableItem item = sm.dhtGetItem(publicKey, salt.getBytes(), 20);
+            long t = (System.nanoTime() - start) / 1000000;
+            print("[mget] loop:" + i + ", cost " + t + "ms" + ", item:" + item.item.toString());
+        }
+    }
+
+    private static boolean is_multi_mget(String s) {
+        return s.startsWith("multi_mget");
+    }
+
+    private static void multi_mget(SessionManager sm, String s) {
+        String[] arr = s.split(" ");
+        byte[] publicKey = Utils.fromHex(arr[1]);
+        byte[] salt = arr[2].getBytes();
+
+        long result = 0;
+
+        while (true) {
+            SessionManager.MutableItem data = sm.dhtGetItem(publicKey, salt, 5);
+            if (data == null || data.item.swig().type() == entry.data_type.undefined_t) {
+                print("result is null");
+                continue;
+            }
+
+            long i;
+            try {
+                print("result:" + data.item.integer());
+                i = data.item.integer();
+            } catch (Exception e) {
+                e.printStackTrace();
+                continue;
+            }
+
+            if (i > result) {
+                result = i;
+                print(result + " is got, ts:" + System.currentTimeMillis() / 1000);
+            }
+        }
+    }
+
+    private static boolean is_multi_mput(String s) {
+        return s.startsWith("multi_mput");
+    }
+
+    private static void multi_mput(SessionManager sm, String s) {
+        String[] arr = s.split(" ");
+        byte[] publicKey = Utils.fromHex(arr[1]);
+        byte[] privateKey = Utils.fromHex(arr[2]);
+        byte[] salt = arr[3].getBytes();
+
+        long i = 1;
+
+        while (true) {
+           print("starting put:" + i + " ts:" + System.currentTimeMillis() / 1000);
+           sm.dhtPutItem(publicKey, privateKey, new Entry(i), salt);
+           i++;
+
+           try {
+                Thread.sleep(30 * 1000);
+           } catch (InterruptedException e) {
+                e.printStackTrace();
+           }
+        }
     }
 
     private static boolean is_unsync_batchget(String s) {
@@ -730,6 +839,26 @@ public final class DhtShell {
 
     private static void externalAddress(SessionManager sm) {
         print(sm.externalAddress());
+    }
+
+    private static boolean is_ping(String s) {
+        return s.startsWith("ping ");
+    }
+
+    private static void ping(SessionManager sm, String s) {
+        String[] options = s.split(" ");
+        if (options.length != 3) {
+            print("Usage:\n" + "ping <ip> <port>");
+            return;
+        }
+
+        String address = options[1];
+        int port = Integer.parseInt(options[2]);
+
+        Pair<String, Integer> node = new Pair<String, Integer>(address, port);
+        print("ping " + address + ":" + port);
+
+        new SessionHandle(sm.swig()).addDhtNode(node);
     }
 
     private static boolean is_get_peers(String s) {
