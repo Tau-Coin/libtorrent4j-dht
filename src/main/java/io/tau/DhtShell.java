@@ -164,6 +164,10 @@ public final class DhtShell {
 		        if (type == AlertType.DHT_MUTABLE_ITEM) {
 		            DhtMutableItemAlert a = (DhtMutableItemAlert) alert;
 		            log(a.message());
+
+                    if (mutableGetContext != null) {
+                        mutableGetContext.onMutalbeItemGot(a);
+                    }
 		        }
 
 		        if (type == AlertType.DHT_IMMUTABLE_ITEM) {
@@ -253,6 +257,8 @@ public final class DhtShell {
                 multi_mget(s, line);
             } else if (is_multi_mput(line)) {
                 multi_mput(s, line);
+            } else if (is_unsync_multi_mget(line)) {
+                unsync_multi_mget(s, line);
             } else if (is_msmput(line)) {
                 msmput(sessions, line);
             } else if (is_mget(line)) {
@@ -664,6 +670,66 @@ public final class DhtShell {
         }
     }
 
+    private static class UnsyncGetContext {
+
+        private SessionHandle sessionHandle;
+        private byte[] publicKey;
+        private byte[] salt;
+        private long result;
+
+        public UnsyncGetContext(SessionHandle sessionHandle, byte[] publicKey, byte[] salt) {
+            this.sessionHandle = sessionHandle;
+            this.publicKey = publicKey;
+            this.salt = salt;
+            this.result = 0;
+        }
+
+        public void beginGet() {
+            sessionHandle.dhtGetItem(publicKey, salt);
+        }
+
+        public void onMutalbeItemGot(DhtMutableItemAlert a) {
+            Entry item = a.item();
+            if (item.swig().type() == entry.data_type.undefined_t) {
+                print("result is null");
+            } else {
+
+                long i = 0;
+                try {
+                    print("result:" + item.integer());
+                    i = item.integer();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                if (i > result) {
+                    result = i;
+                    print(result + " is got, ts:" + System.currentTimeMillis() / 1000);
+                }
+            }
+
+            boolean auth = a.swig().getAuthoritative();
+            if (auth) {
+                sessionHandle.dhtGetItem(publicKey, salt);
+            }
+        }
+    }
+
+    private static UnsyncGetContext mutableGetContext = null;
+
+    private static boolean is_unsync_multi_mget(String s) {
+        return s.startsWith("unsync_multi_mget");
+    }
+
+    private static void unsync_multi_mget(SessionManager sm, String s) {
+        String[] arr = s.split(" ");
+        byte[] publicKey = Utils.fromHex(arr[1]);
+        byte[] salt = arr[2].getBytes();
+
+        mutableGetContext = new UnsyncGetContext(new SessionHandle(sm.swig()),
+                publicKey, salt);
+        mutableGetContext.beginGet();
+    }
     private static boolean is_multi_mput(String s) {
         return s.startsWith("multi_mput");
     }
