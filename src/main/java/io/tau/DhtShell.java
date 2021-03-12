@@ -707,11 +707,6 @@ public final class DhtShell {
                     print(result + " is got, ts:" + System.currentTimeMillis() / 1000);
                 }
             }
-
-            boolean auth = a.swig().getAuthoritative();
-            if (auth) {
-                sessionHandle.dhtGetItem(publicKey, salt);
-            }
         }
     }
 
@@ -728,8 +723,19 @@ public final class DhtShell {
 
         mutableGetContext = new UnsyncGetContext(new SessionHandle(sm.swig()),
                 publicKey, salt);
-        mutableGetContext.beginGet();
+
+        while (true) {
+            print("start getting mutable item, ts:" + System.currentTimeMillis() / 1000);
+            mutableGetContext.beginGet();
+
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
+
     private static boolean is_multi_mput(String s) {
         return s.startsWith("multi_mput");
     }
