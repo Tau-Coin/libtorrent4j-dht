@@ -28,6 +28,7 @@ public final class SessionSettings {
         session_params sparams = new session_params(sp);
         dht_settings ds = new dht_settings();
         ds.setMax_dht_items(DHT_MAX_ITEMS);
+        ds.setMax_fail_count(5);
 		/*
         ds.setUpload_rate_limit(512);
         ds.setRead_only(true);
@@ -69,7 +70,8 @@ public final class SessionSettings {
             port++;
         }
 
-        interfaces = interfaces + "0.0.0.0:" + port;
+        //interfaces = interfaces + "0.0.0.0:" + port;
+        interfaces = "0.0.0.0:0";
 
         return interfaces;
     }
